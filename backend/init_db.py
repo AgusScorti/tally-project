@@ -1,16 +1,17 @@
-#!/usr/bin/env python
 """
-Script para inicializar la base de datos
-Crea todas las tablas y datos de prueba
+Script para inicializar la base de datos con datos de prueba
 """
 import sys
-from sqlalchemy import create_engine
+import os
+
+# Agregar el directorio actual al path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-# Importar modelos y config
-from app.config import settings
-from app.database import Base, SessionLocal
+from app.database import engine, SessionLocal
+from app.models import Base
 from app.models.user import User
 from app.models.card import Card
 from app.models.category import Category
@@ -18,245 +19,221 @@ from app.models.expense import Expense
 from app.models.expense_participant import ExpenseParticipant
 from app.models.installment import Installment
 from app.models.installment_split import InstallmentSplit
-from app.security import hash_password
+from app.models.payment import Payment
+from app.security import get_password_hash
+
 
 def init_db():
-    """Inicializar BD"""
-    print("🗄️  Creando tablas...")
-    engine = create_engine(settings.DATABASE_URL)
+    """Inicializar BD con tablas y datos de prueba"""
+    
+    print("Creando tablas...")
     Base.metadata.create_all(bind=engine)
-    print("✅ Tablas creadas")
-
-def seed_db():
-    """Agregar datos de prueba"""
+    print("Tablas creadas OK")
+    
     db = SessionLocal()
     
     try:
-        # Verificar si ya existen datos
+        # Verificar si ya hay datos
         if db.query(User).count() > 0:
-            print("⚠️  BD ya contiene datos, saltando seed")
+            print("La BD ya tiene datos. Saltando...")
             return
         
-        print("🌱 Agregando datos de prueba...")
+        # ==================== USUARIOS ====================
+        print("Creando usuarios...")
         
-        # ==================== CREAR USUARIOS ====================
         user1 = User(
             email="juan@example.com",
             username="juan",
-            full_name="Juan García",
-            hashed_password=hash_password("password123")
+            full_name="Juan Garcia",
+            hashed_password=get_password_hash("password123"),
+            is_active=True
         )
-        
         user2 = User(
             email="maria@example.com",
             username="maria",
-            full_name="María López",
-            hashed_password=hash_password("password123")
+            full_name="Maria Lopez",
+            hashed_password=get_password_hash("password123"),
+            is_active=True
         )
-        
         user3 = User(
             email="carlos@example.com",
             username="carlos",
-            full_name="Carlos Rodríguez",
-            hashed_password=hash_password("password123")
+            full_name="Carlos Rodriguez",
+            hashed_password=get_password_hash("password123"),
+            is_active=True
         )
         
         db.add_all([user1, user2, user3])
-        db.flush()  # Obtener IDs
-        
-        print(f"✅ Usuarios creados: {user1.username}, {user2.username}, {user3.username}")
-        
-        # ==================== CREAR TARJETAS ====================
-        card1 = Card(
-            user_id=user1.id,
-            name="Visa Personal",
-            card_type="visa",
-            last_four="4242"
-        )
-        
-        card2 = Card(
-            user_id=user1.id,
-            name="Mastercard Trabajo",
-            card_type="mastercard",
-            last_four="5555"
-        )
-        
-        db.add_all([card1, card2])
         db.flush()
+        print(f"Usuarios creados: {user1.id}, {user2.id}, {user3.id}")
         
-        print(f"✅ Tarjetas creadas")
+        # ==================== TARJETAS ====================
+        print("Creando tarjetas...")
         
-        # ==================== CREAR CATEGORÍAS ====================
+        cards = [
+            Card(user_id=user1.id, name="Visa Personal", card_type="visa", last_four="4242"),
+            Card(user_id=user1.id, name="Mastercard Black", card_type="mastercard", last_four="8888"),
+            Card(user_id=user2.id, name="Visa Maria", card_type="visa", last_four="1234"),
+            Card(user_id=user3.id, name="Amex Carlos", card_type="amex", last_four="5678"),
+        ]
+        
+        db.add_all(cards)
+        db.flush()
+        print("Tarjetas creadas OK")
+        
+        # ==================== CATEGORIAS ====================
+        print("Creando categorias...")
+        
         categories = [
-            Category(user_id=user1.id, name="Comida", color="#FF6B6B", icon="🍔"),
-            Category(user_id=user1.id, name="Transporte", color="#4ECDC4", icon="🚗"),
-            Category(user_id=user1.id, name="Tecnología", color="#45B7D1", icon="💻"),
-            Category(user_id=user1.id, name="Entretenimiento", color="#96CEB4", icon="🎮"),
-            Category(user_id=user1.id, name="Otros", color="#CCCCCC", icon="📌"),
+            Category(user_id=user1.id, name="Comidas", color="#FF6B6B", icon="food"),
+            Category(user_id=user1.id, name="Transporte", color="#4ECDC4", icon="car"),
+            Category(user_id=user1.id, name="Tecnologia", color="#45B7D1", icon="tech"),
+            Category(user_id=user1.id, name="Entretenimiento", color="#96CEB4", icon="fun"),
+            Category(user_id=user1.id, name="Servicios", color="#FFEAA7", icon="service"),
+            Category(user_id=user2.id, name="Comidas", color="#FF6B6B", icon="food"),
+            Category(user_id=user2.id, name="Transporte", color="#4ECDC4", icon="car"),
+            Category(user_id=user3.id, name="Comidas", color="#FF6B6B", icon="food"),
         ]
         
         db.add_all(categories)
         db.flush()
+        print("Categorias creadas OK")
         
-        print(f"✅ Categorías creadas")
+        # ==================== GASTOS ====================
+        print("Creando gastos...")
         
-        # ==================== CREAR GASTO SIMPLE ====================
+        now = datetime.now()
+        
+        # Gasto 1: Cena entre Juan y Maria
         expense1 = Expense(
-            card_id=card1.id,
-            category_id=categories[0].id,  # Comida
-            date=datetime.now() - timedelta(days=5),
-            concept="Cena en restaurante La Piazza",
-            total_amount=Decimal("300.00"),
+            card_id=cards[0].id,
+            category_id=categories[0].id,
+            date=now - timedelta(days=5),
+            concept="Cena restaurante",
+            total_amount=Decimal("3000.00"),
             has_installments=False,
             num_installments=1
         )
-        
         db.add(expense1)
         db.flush()
         
-        # Participantes del gasto
-        participant1 = ExpenseParticipant(
-            expense_id=expense1.id,
-            user_id=user1.id,
-            amount=Decimal("180.00"),
-            description="Mi parte"
-        )
+        db.add_all([
+            ExpenseParticipant(expense_id=expense1.id, user_id=user1.id, amount=Decimal("1800.00"), percentage=Decimal("60")),
+            ExpenseParticipant(expense_id=expense1.id, user_id=user2.id, amount=Decimal("1200.00"), percentage=Decimal("40")),
+        ])
         
-        participant2 = ExpenseParticipant(
-            expense_id=expense1.id,
-            user_id=user2.id,
-            amount=Decimal("120.00"),
-            description="Maria"
-        )
-        
-        db.add_all([participant1, participant2])
-        
-        print(f"✅ Gasto simple creado: {expense1.concept}")
-        
-        # ==================== CREAR GASTO CON CUOTAS ====================
+        # Gasto 2: Uber entre los 3
         expense2 = Expense(
-            card_id=card1.id,
-            category_id=categories[2].id,  # Tecnología
-            date=datetime.now() - timedelta(days=10),
-            concept="Laptop para Juan (en 5 cuotas)",
-            total_amount=Decimal("1000.00"),
-            has_installments=True,
-            num_installments=5
+            card_id=cards[0].id,
+            category_id=categories[1].id,
+            date=now - timedelta(days=3),
+            concept="Uber al aeropuerto",
+            total_amount=Decimal("1500.00"),
+            has_installments=False,
+            num_installments=1
         )
-        
         db.add(expense2)
         db.flush()
         
-        # Participantes (porcentaje)
-        participant3 = ExpenseParticipant(
-            expense_id=expense2.id,
-            user_id=user1.id,
-            percentage=Decimal("40.00")
-        )
+        db.add_all([
+            ExpenseParticipant(expense_id=expense2.id, user_id=user1.id, amount=Decimal("500.00"), percentage=Decimal("33.33")),
+            ExpenseParticipant(expense_id=expense2.id, user_id=user2.id, amount=Decimal("500.00"), percentage=Decimal("33.33")),
+            ExpenseParticipant(expense_id=expense2.id, user_id=user3.id, amount=Decimal("500.00"), percentage=Decimal("33.34")),
+        ])
         
-        participant4 = ExpenseParticipant(
-            expense_id=expense2.id,
-            user_id=user2.id,
-            percentage=Decimal("60.00")
+        # Gasto 3: Netflix con cuotas
+        expense3 = Expense(
+            card_id=cards[0].id,
+            category_id=categories[2].id,
+            date=now - timedelta(days=10),
+            concept="Laptop compartida",
+            total_amount=Decimal("120000.00"),
+            has_installments=True,
+            num_installments=6
         )
-        
-        db.add_all([participant3, participant4])
+        db.add(expense3)
         db.flush()
         
-        # Crear cuotas
-        for i in range(1, 6):
-            due_month = datetime.now().month + i
-            due_year = datetime.now().year
+        db.add_all([
+            ExpenseParticipant(expense_id=expense3.id, user_id=user1.id, amount=Decimal("60000.00"), percentage=Decimal("50")),
+            ExpenseParticipant(expense_id=expense3.id, user_id=user2.id, amount=Decimal("60000.00"), percentage=Decimal("50")),
+        ])
+        
+        # Crear cuotas para expense3
+        installment_amount = Decimal("20000.00")
+        for i in range(1, 7):
+            due_month = now.month + i
+            due_year = now.year
             if due_month > 12:
                 due_month -= 12
                 due_year += 1
             
-            installment = Installment(
-                expense_id=expense2.id,
+            inst = Installment(
+                expense_id=expense3.id,
                 installment_number=i,
-                amount=Decimal("200.00"),
-                due_date=datetime(due_year, due_month, 1)
+                amount=installment_amount,
+                due_date=datetime(due_year, due_month, 1),
+                paid=(i == 1)
             )
-            
-            db.add(installment)
+            db.add(inst)
             db.flush()
             
-            # Splits (aplicar porcentaje a cada cuota)
-            split1 = InstallmentSplit(
-                installment_id=installment.id,
-                user_id=user1.id,
-                amount=Decimal("80.00")  # 40% de 200
-            )
-            
-            split2 = InstallmentSplit(
-                installment_id=installment.id,
-                user_id=user2.id,
-                amount=Decimal("120.00")  # 60% de 200
-            )
-            
-            db.add_all([split1, split2])
+            db.add_all([
+                InstallmentSplit(installment_id=inst.id, user_id=user1.id, amount=Decimal("10000.00"), paid=(i == 1)),
+                InstallmentSplit(installment_id=inst.id, user_id=user2.id, amount=Decimal("10000.00"), paid=(i == 1)),
+            ])
         
-        print(f"✅ Gasto con cuotas creado: {expense2.concept}")
-        
-        # ==================== CREAR MÁS GASTOS ====================
-        more_expenses = [
-            Expense(
-                card_id=card1.id,
-                category_id=categories[0].id,
-                date=datetime.now() - timedelta(days=2),
-                concept="Café con amigos",
-                total_amount=Decimal("85.50")
-            ),
-            Expense(
-                card_id=card1.id,
-                category_id=categories[1].id,
-                date=datetime.now() - timedelta(days=1),
-                concept="Uber al trabajo",
-                total_amount=Decimal("45.00")
-            ),
-            Expense(
-                card_id=card2.id,
-                category_id=categories[3].id,
-                date=datetime.now(),
-                concept="Cine y palomitas",
-                total_amount=Decimal("120.00")
-            ),
-        ]
-        
-        db.add_all(more_expenses)
+        # Gasto 4: Supermercado
+        expense4 = Expense(
+            card_id=cards[2].id,
+            category_id=categories[5].id,
+            date=now - timedelta(days=1),
+            concept="Supermercado semana",
+            total_amount=Decimal("8500.00"),
+            has_installments=False,
+            num_installments=1
+        )
+        db.add(expense4)
         db.flush()
         
-        # Participantes para los otros gastos
-        for expense in more_expenses:
-            p1 = ExpenseParticipant(
-                expense_id=expense.id,
-                user_id=user1.id,
-                amount=expense.total_amount * Decimal("0.5")
-            )
-            p2 = ExpenseParticipant(
-                expense_id=expense.id,
-                user_id=user3.id,
-                amount=expense.total_amount * Decimal("0.5")
-            )
-            db.add_all([p1, p2])
+        db.add_all([
+            ExpenseParticipant(expense_id=expense4.id, user_id=user2.id, amount=Decimal("4250.00"), percentage=Decimal("50")),
+            ExpenseParticipant(expense_id=expense4.id, user_id=user1.id, amount=Decimal("4250.00"), percentage=Decimal("50")),
+        ])
         
-        print(f"✅ Gastos adicionales creados")
+        # ==================== PAGOS ====================
+        print("Creando pagos de ejemplo...")
         
-        # Commit
+        payment1 = Payment(
+            from_user_id=user2.id,
+            to_user_id=user1.id,
+            amount=Decimal("1000.00"),
+            description="Pago parcial cena",
+            payment_date=now - timedelta(days=2),
+            confirmed=True
+        )
+        db.add(payment1)
+        
         db.commit()
-        print("\n✅ BD inicializada correctamente\n")
-        print("📌 Usuarios creados:")
-        print(f"  - juan@example.com / password123")
-        print(f"  - maria@example.com / password123")
-        print(f"  - carlos@example.com / password123")
+        
+        print("")
+        print("=" * 50)
+        print("Base de datos inicializada correctamente!")
+        print("=" * 50)
+        print("")
+        print("Usuarios de prueba:")
+        print("  Email: juan@example.com   / Password: password123")
+        print("  Email: maria@example.com  / Password: password123")
+        print("  Email: carlos@example.com / Password: password123")
+        print("")
         
     except Exception as e:
-        print(f"❌ Error: {e}")
         db.rollback()
-        sys.exit(1)
+        print(f"Error: {e}")
+        raise
     finally:
         db.close()
 
+
 if __name__ == "__main__":
     init_db()
-    seed_db()
