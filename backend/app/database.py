@@ -2,8 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
 from app.config import settings
 
+# psycopg3 usa postgresql+psycopg en lugar de postgresql
+DATABASE_URL = settings.DATABASE_URL.replace(
+    "postgresql://", "postgresql+psycopg://"
+)
+
 engine = create_engine(
-    settings.DATABASE_URL,
+    DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
