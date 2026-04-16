@@ -1,0 +1,83 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-tally-light text-tally-text antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-tally-500 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-tally-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-tally-border text-tally-text px-4 py-2.5 rounded-xl font-medium hover:bg-tally-hover transition-colors duration-200;
+  }
+
+  .input-base {
+    @apply px-4 py-2.5 border border-tally-border rounded-xl focus:outline-none focus:ring-2 focus:ring-tally-500 focus:border-transparent transition-all duration-200;
+  }
+
+  .card-base {
+    @apply bg-white rounded-xl border border-tally-border;
+  }
+
+  .text-label {
+    @apply block text-sm font-medium text-tally-text mb-2;
+  }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
